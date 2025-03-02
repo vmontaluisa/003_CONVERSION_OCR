@@ -100,10 +100,11 @@ terminos_reemplazables = [
     {"termino_original": "Considerandos ", "termino_final": "Considerando "}
 ]
 
-#lsitado de terminos para olvidar parrafgos
+#lsitado de terminos para olvidar parrafgos en MINUSCULAS
 terminos_eliminar = [
     'lexis',
-    'jurisxx'
+    'jurisxx',
+    'concordancias:'
     ]
 
 
@@ -142,7 +143,8 @@ logging.basicConfig(
 
 
 
-# Ruta del modelo dentro del proyecto######################################################
+#######################################################################################
+#######################################################################################
 
 chroma_client=None
 chroma_collection=None
@@ -178,10 +180,10 @@ chroma_collection = chroma_client.get_or_create_collection(name="documentos_lega
 
 
 #######################################################################################
+#######################################################################################
 
 def limpiar_json(datos):
     """Reemplaza valores None con una cadena vacía ("")."""
-    
     
     if isinstance(datos, dict):
         return {k: limpiar_json(v) for k, v in datos.items()}
@@ -197,7 +199,7 @@ def limpiar_json(datos):
 def agregar_documento_chroma(texto, metadata):
     """Genera embeddings y los almacena en ChromaDB con metadatos."""
     try:
-        embedding = modelo_legal.encode([texto])[0].tolist()
+        embedding = modelo_legal.encode([texto] , show_progress_bar=False )[0].tolist()
         if metadata and "_id" in metadata:
             del metadata["_id"]
 
@@ -221,6 +223,7 @@ def agregar_documento_chroma(texto, metadata):
 
 
 #######################################################################################
+#######################################################################################
 
 def cargar_indice():
     """Carga el índice FAISS si existe, o crea uno nuevo."""
@@ -237,7 +240,7 @@ def guardar_indice():
 
 def agregar_documento_faiss(texto, metadata_json):
     """Genera embeddings para el texto y los agrega al índice FAISS."""
-    embedding = modelo_legal.encode([texto])[0]
+    embedding = modelo_legal.encode([texto], show_progress_bar=False  )[0]
     index.add(np.array([embedding]).astype('float32'))
     
     guardar_indice()  # Guardamos el índice actualizado
@@ -251,7 +254,7 @@ def agregar_documento_faiss(texto, metadata_json):
     
         # Retornar el índice asignado al documento en FAISS
     return ultimo_indice  # El último índice agregado
-
+#######################################################################################
 #######################################################################################
  
 
@@ -627,34 +630,6 @@ def extraer_texto_y_metadatos(pdf_path,nomnre_archivo):#########################
     except Exception as e:
         logging.error(f"❌ Error extrayendo texto de {pdf_path}: {e}\n{traceback.format_exc()}")
         return False
-
-###############################################################################################################
-
-def buscar_texto(query, top_k=5):
-    """Busca un texto en el índice FAISS y devuelve los documentos más relevantes."""
-    vector_consulta = modelo_legal.encode([query])
-    distances, indices = index.search(np.array(vector_consulta).astype('float32'), top_k)
-    resultados = []
-    for i in range(top_k):
-        doc = coleccion.find_one({"texto.unid": indices[0][i]})
-        if doc:
-            resultados.append({
-                "archivo": doc["archivo"],
-                "pagina": doc["texto"][indices[0][i]]['pagina'],
-                "parrafo": doc["texto"][indices[0][i]]['parrafo'],
-                "coordenadas": doc["texto"][indices[0][i]]['coordenadas'],
-                "imagen_pagina": doc["texto"][indices[0][i]]['imagen_pagina']
-            })
-    return resultados
-
-##############################################################################################################
-
-
-#@app.get("/buscar/")
-def buscar_api(query: str = Query(..., description="Texto a buscar"), top_k: int = 5):
-    """API para buscar documentos en FAISS."""
-    resultados = buscar_texto(query, top_k)
-    return {"query": query, "resultados": resultados}
 
 
 ##############################################################################################################
