@@ -1,1 +1,8 @@
 venv
+.history
+.vscode
+.env
+es_core_news_sm
+logs
+.vscode
+TEMP
