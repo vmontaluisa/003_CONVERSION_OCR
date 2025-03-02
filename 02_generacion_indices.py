@@ -138,6 +138,8 @@ logging.basicConfig(
 
 # Ruta del modelo dentro del proyecto######################################################
 
+chroma_client=None
+chroma_collection=None
 
 # Inicializar cliente de ChromaDB
 try:
@@ -173,6 +175,8 @@ chroma_collection = chroma_client.get_or_create_collection(name="documentos_lega
 
 def limpiar_json(datos):
     """Reemplaza valores None con una cadena vacía ("")."""
+    
+    
     if isinstance(datos, dict):
         return {k: limpiar_json(v) for k, v in datos.items()}
     elif isinstance(datos, list):
@@ -188,6 +192,9 @@ def agregar_documento_chroma(texto, metadata):
     """Genera embeddings y los almacena en ChromaDB con metadatos."""
     try:
         embedding = modelo_legal.encode([texto])[0].tolist()
+        if metadata and "_id" in metadata:
+            del metadata["_id"]
+
         metadata = limpiar_json(metadata)  # Asegurar que los metadatos no tengan None
 
         # Asegurar que el ID está presente
