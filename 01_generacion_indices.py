@@ -207,7 +207,7 @@ def agregar_documento_chroma(texto, metadata):
             embeddings=[embedding],
             metadatas=[metadata]
         )
-        logging.info(f"✅ Documento agregado a ChromaDB con ID: {metadata['vector_id']}")
+      #  logging.info(f"✅ Documento agregado a ChromaDB con ID: {metadata['vector_id']}")
     
     except Exception as e:
         logging.error(f"❌ Error al agregar a ChromaDB: {e}\n{traceback.format_exc()}")
@@ -569,44 +569,38 @@ def extraer_texto_y_metadatos(pdf_path,nomnre_archivo):#########################
                         unid_parrafo = str(uuid.uuid4())
                         
                         metadatos["texto"].append({
-                            "unid_parrafo": unid_parrafo,
-                            "numero_pagina":numero_pagina,
-                            "numero_parrafos":numero_parrafos,
-                            "nombre_seccion":nombre_seccion,
-                            "pagina": num_pagina + 1,
-                            "parrafo": texto_parrafo,
-                            "parrafo_original": texto_original,
-                            "coordenadas": coordenadas,
-                            "articulo": articulo_actual,
-                            "nombre_archivo_imagen": nommbre_imagen,
-                            "unid_archivo_pdf":unid_archivo,
-                            "nombre_archivo_pdf":nomnre_archivo
+                            "archivo_uuid":unid_archivo,
+                            "archivo_nombre_archivo_pdf":nomnre_archivo,
+                            "pagina_numero":numero_pagina,
+                            "pagina_imagen": nommbre_imagen,
+                            "seccion_nombre":nombre_seccion,
+                            "articulo_numero": articulo_actual,
+                            "parrafo_unid": unid_parrafo,
+                            "parrafo_numero":numero_parrafos,
+                            "parrafo_coordenadas": coordenadas,
+                            "parrafo_texto_indexado": texto_parrafo,
+                            "parrafo_texto_original": texto_original,
+
                         })
                         metadata_indice= {
                             "vector_id": unid_parrafo,
-                            "unid_parrafo": unid_parrafo,
-                            "numero_pagina":numero_pagina,
-                            "numero_parrafos":numero_parrafos,
-                            "nombre_seccion":nombre_seccion,
-                            "pagina": num_pagina + 1,
-                            "articulo": articulo_actual,
-                            "x0":(coordenadas["x0"]),
-                            "y0":(coordenadas["y0"]),
-                            "x1":(coordenadas["x1"]),
-                            "y1":(coordenadas["y1"]),
-                            "parrafo": texto_parrafo,
-                            "parrafo_original": texto_original,
-                            "unid_archivo_pdf":unid_archivo,
-                            "nombre_archivo_imagen": nommbre_imagen,
-                            "nombre_archivo_pdf":nomnre_archivo
-
-
-                            
+                            "archivo_uuid":unid_archivo,
+                            "archivo_nombre_archivo_pdf":nomnre_archivo,
+                            "pagina_numero":numero_pagina,                            
+                            "pagina_imagen": nommbre_imagen,
+                            "seccion_nombre":nombre_seccion,
+                            "articulo_numero": articulo_actual,
+                            "parrafo_unid": unid_parrafo,
+                            "parrafo_numero":numero_parrafos,
+                            "parrafo_coordenadas_x0":(coordenadas["x0"]),
+                            "parrafo_coordenadas_y0":(coordenadas["y0"]),
+                            "parrafo_coordenadas_x1":(coordenadas["x1"]),
+                            "parrafo_coordenadas_y1":(coordenadas["y1"]),
+                            "paparrafo_texto_indexadorrafo": texto_parrafo,
+                            "parrafo_texto_original": texto_original,
+                                                    
                         }
-                            
-                        
-                        
-                        
+                                                    
                         agregar_documento_faiss(texto_parrafo,metadata_indice)
                         # Agregar a ChromaDB
                         agregar_documento_chroma(texto_parrafo, metadata_indice)
