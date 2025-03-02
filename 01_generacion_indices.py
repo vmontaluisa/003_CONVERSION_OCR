@@ -32,7 +32,16 @@ import chromadb
 # Cargar configuraciones desde .env
 load_dotenv()
 
+
+##############################################################################
+#
+# REPOSITORIO DE PROCESAMIENTO DE DOCUMENTOS
+#
+#https://github.com/vmontaluisa/003_CONVERSION_OCR_preprocesamiento
 BASE_DIR = os.getenv("BASE_DIR", "../REPOSITORIO_DOCUMENTOS/preprocesamiento")
+##############################################################################
+
+
 DIR_NUEVOS = os.path.join(BASE_DIR, os.getenv("DIR_NUEVOS", "01_PDF_NUEVOS"))
 DIR_PROCESADOS = os.path.join(BASE_DIR, os.getenv("DIR_PROCESADOS", "02_PDF_PROCESADOS"))
 DIR_ERRORES = os.path.join(BASE_DIR, os.getenv("DIR_ERRORES", "03_PDF_ERRORES"))
@@ -69,9 +78,6 @@ OPENAI_MAXIMO_TEXTO=int(os.getenv("OPENAI_MAXIMO_TEXTO", ""))
 #CHROMA_DB
 CHROMA_DB_PATH=f"{DIR_CHROMA}"  # Ruta donde se guardará la base de datos
 os.makedirs(CHROMA_DB_PATH, exist_ok=True)
-
-
-##############################################################################
 
 
 # Pregunta OPENAI
