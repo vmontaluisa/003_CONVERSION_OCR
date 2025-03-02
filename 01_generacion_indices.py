@@ -88,24 +88,30 @@ PREGUNTAS = ["¿Numero Registro Oficial o Suplemento?",
                  ]
 
 # Diccionario de términos legales personalizados
-terminos_legales = {
+TERMINOS_LEGALES = {
     "vicio de consentimiento": "error esencial",
     "acción de nulidad": "recurso de nulidad",
     "resolución judicial": "sentencia",
    
 }
 # Lista de términos reemplazables
-terminos_reemplazables = [
+TERMINOS_REEMPLAZABLES = [
     {"termino_original": "art. ", "termino_final": "artículo. "},
     {"termino_original": "Considerandos ", "termino_final": "Considerando "}
 ]
 
-#lsitado de terminos para olvidar parrafgos en MINUSCULAS
-terminos_eliminar = [
+#lsitado de terminos para olvidar parrafgos en MINUSCULAS preprocesado
+TERMINOS_NO_CONSIDERAR_PARRAFOS = {
     'lexis',
     'jurisxx',
     'concordancias:'
-    ]
+}
+
+#lsitado de terminos para olvidar parrafgos en MINUSCULAS postprocesado
+PALABRAS_IGNORADAS = { 
+                      "concordancia",
+                      
+                      }  # Palabras poco útiles
 
 
 ##############################################################################
@@ -166,7 +172,10 @@ device = "mps" if torch.backends.mps.is_available() else "cpu"
 # Cargar el modelo en MPS
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-modelo_legal = SentenceTransformer("PlanTL-GOB-ES/roberta-base-bne", device=device)
+#MODELO="PlanTL-GOB-ES/roberta-base-bne"
+MODELO="hiiamsid/sentence_similarity_spanish_es"
+
+modelo_legal = SentenceTransformer(MODELO, device=device)
 logging.info(f"✅ Modelo cargado en: {device}")
 
 # Crear índice FAISS para embeddings
@@ -196,10 +205,13 @@ def limpiar_json(datos):
 
 
 
-def agregar_documento_chroma(texto, metadata):
+def agregar_documento_chroma(texto, metadata):##############################################
     """Genera embeddings y los almacena en ChromaDB con metadatos."""
     try:
-        embedding = modelo_legal.encode([texto] , show_progress_bar=False )[0].tolist()
+        embedding = modelo_legal.encode([texto] , 
+                                        show_progress_bar=False ,
+                                         normalize_embeddings=True
+                                        )[0].tolist()
         if metadata and "_id" in metadata:
             del metadata["_id"]
 
@@ -238,9 +250,12 @@ def guardar_indice():
     """Guarda el índice FAISS en disco."""
     faiss.write_index(index, INDEX_FILE)
 
-def agregar_documento_faiss(texto, metadata_json):
+def agregar_documento_faiss(texto, metadata_json):###########################################
     """Genera embeddings para el texto y los agrega al índice FAISS."""
-    embedding = modelo_legal.encode([texto], show_progress_bar=False  )[0]
+    embedding = modelo_legal.encode([texto], 
+                                    show_progress_bar=False ,
+                                     normalize_embeddings=True
+                                    )[0]
     index.add(np.array([embedding]).astype('float32'))
     
     guardar_indice()  # Guardamos el índice actualizado
@@ -270,7 +285,7 @@ def preprocesar_texto(texto):
 
 def expandir_texto(texto):
     """Agrega sinónimos legales al texto para mejorar embeddings."""
-    for term, sinonimo in terminos_legales.items():
+    for term, sinonimo in TERMINOS_LEGALES.items():
         if term in texto:
             texto += f" {sinonimo}"
     return texto
@@ -278,7 +293,7 @@ def expandir_texto(texto):
 def reemplazar_terminos(texto): 
     """
     Reemplaza términos en un texto según una lista de diccionarios con 'termino_original' y 'termino_final'.      """
-    for reemplazo in terminos_reemplazables:
+    for reemplazo in TERMINOS_REEMPLAZABLES:
         texto = texto.replace(reemplazo["termino_original"], reemplazo["termino_final"])
     return texto
 
@@ -301,12 +316,26 @@ def tiene_texto(pdf_path):
         logging.error(f"Error verificando texto en {pdf_path}: {e}\n{traceback.format_exc()}")
         return False
     
-def no_contiene_termino_prohibido(texto, terminos_eliminar):
+def no_contiene_termino_prohibido(texto):
     """
     Verifica si ningún término en terminos_eliminar está presente en el texto.
      """
     texto = texto.lower()  # Convertir a minúsculas para búsqueda sin distinción de mayúsculas
-    return not any(termino.lower() in texto for termino in terminos_eliminar)
+    if texto.lower() in TERMINOS_NO_CONSIDERAR_PARRAFOS:
+        return False
+    return True
+ 
+    
+ 
+
+def es_texto_relevante_post_procesado(texto):
+    """Filtra textos cortos o irrelevantes despeus de indexzarlso de indexarlos."""
+    palabras = texto.split()
+    if len(palabras) < 4:  # Si tiene menos de 4 palabras, es irrelevante
+        return False
+    if texto.lower() in PALABRAS_IGNORADAS:
+        return False
+    return True
 
 
 def tiene_texto(pdf_path):
@@ -394,7 +423,7 @@ def procesar_pdfs():############################################################
         logging.info("📂 No hay nuevos PDFs para procesar.")
         return
 
-    for archivo in  tqdm(archivos_pdf, desc=f"Procesando PDFs"  , disable=(len(archivos_pdf) == 1) ):
+    for archivo in  tqdm(archivos_pdf, desc=f"Proceso Total PDFs"  , disable=(len(archivos_pdf) == 1) ):
         pdf_path = os.path.join(DIR_NUEVOS, archivo)
         logging.info(f"🔍 Procesando: {archivo}")
         
@@ -444,7 +473,7 @@ def extraer_texto_y_metadatos(pdf_path,nomnre_archivo):#########################
         nombre_seccion=''
         metadata_extra={}
         metadata_adicional={}
-        for num_pagina in  range(len(doc)):#tqdm(range(len(doc)), desc="Procesando páginas del PDF"):
+        for num_pagina in  tqdm(range(len(doc)), desc=f"Procesando páginas del PDF[{nomnre_archivo}]"):
             numero_pagina+=1
             pagina = doc[num_pagina]
             parrafos = pagina.get_text("blocks")
@@ -461,7 +490,7 @@ def extraer_texto_y_metadatos(pdf_path,nomnre_archivo):#########################
             numero_parrafos=0
             for bloque in parrafos:
                 texto_original=bloque[4].strip()
-                if   no_contiene_termino_prohibido(texto_original, terminos_eliminar):                
+                if   no_contiene_termino_prohibido(texto_original):                
                     numero_parrafos+=1
                     ################################################################
                     ##IDENTIFICACION DE SECCIONES
@@ -570,50 +599,47 @@ def extraer_texto_y_metadatos(pdf_path,nomnre_archivo):#########################
                     texto_parrafo = preprocesar_texto(texto_parrafo)  # Aplicar lematización y stopwords
 
                     if texto_parrafo:
-                        coordenadas = {
-                            "x0": bloque[0], "y0": bloque[1], "x1": bloque[2], "y1": bloque[3]
-                        }
-                        
-                        
-                        
-                        unid_parrafo = str(uuid.uuid4())
-                        
-                        metadatos["texto"].append({
-                            "archivo_uuid":unid_archivo,
-                            "archivo_nombre_archivo_pdf":nomnre_archivo,
-                            "pagina_numero":numero_pagina,
-                            "pagina_imagen": nommbre_imagen,
-                            "seccion_nombre":nombre_seccion,
-                            "articulo_numero": articulo_actual,
-                            "parrafo_unid": unid_parrafo,
-                            "parrafo_numero":numero_parrafos,
-                            "parrafo_coordenadas": coordenadas,
-                            "parrafo_texto_indexado": texto_parrafo,
-                            "parrafo_texto_original": texto_original,
+                        if es_texto_relevante_post_procesado(texto_parrafo):
+                            coordenadas = {
+                                "x0": bloque[0], "y0": bloque[1], "x1": bloque[2], "y1": bloque[3]
+                            }                        
+                            unid_parrafo = str(uuid.uuid4())                        
+                            metadatos["texto"].append({
+                                "archivo_uuid":unid_archivo,
+                                "archivo_nombre_archivo_pdf":nomnre_archivo,
+                                "pagina_numero":numero_pagina,
+                                "pagina_imagen": nommbre_imagen,
+                                "seccion_nombre":nombre_seccion,
+                                "articulo_numero": articulo_actual,
+                                "parrafo_unid": unid_parrafo,
+                                "parrafo_numero":numero_parrafos,
+                                "parrafo_coordenadas": coordenadas,
+                                "parrafo_texto_indexado": texto_parrafo,
+                                "parrafo_texto_original": texto_original,
 
-                        })
-                        metadata_indice= {
-                            "vector_id": unid_parrafo,
-                            "archivo_uuid":unid_archivo,
-                            "archivo_nombre_archivo_pdf":nomnre_archivo,
-                            "pagina_numero":numero_pagina,                            
-                            "pagina_imagen": nommbre_imagen,
-                            "seccion_nombre":nombre_seccion,
-                            "articulo_numero": articulo_actual,
-                            "parrafo_unid": unid_parrafo,
-                            "parrafo_numero":numero_parrafos,
-                            "parrafo_coordenadas_x0":(coordenadas["x0"]),
-                            "parrafo_coordenadas_y0":(coordenadas["y0"]),
-                            "parrafo_coordenadas_x1":(coordenadas["x1"]),
-                            "parrafo_coordenadas_y1":(coordenadas["y1"]),
-                            "parrafo_texto_indexado": texto_parrafo,
-                            "parrafo_texto_original": texto_original,
-                                                    
-                        }
-                                                    
-                        agregar_documento_faiss(texto_parrafo,metadata_indice)
-                        # Agregar a ChromaDB
-                        agregar_documento_chroma(texto_parrafo, metadata_indice)
+                            })
+                            metadata_indice= {
+                                "vector_id": unid_parrafo,
+                                "archivo_uuid":unid_archivo,
+                                "archivo_nombre_archivo_pdf":nomnre_archivo,
+                                "pagina_numero":numero_pagina,                            
+                                "pagina_imagen": nommbre_imagen,
+                                "seccion_nombre":nombre_seccion,
+                                "articulo_numero": articulo_actual,
+                                "parrafo_unid": unid_parrafo,
+                                "parrafo_numero":numero_parrafos,
+                                "parrafo_coordenadas_x0":(coordenadas["x0"]),
+                                "parrafo_coordenadas_y0":(coordenadas["y0"]),
+                                "parrafo_coordenadas_x1":(coordenadas["x1"]),
+                                "parrafo_coordenadas_y1":(coordenadas["y1"]),
+                                "parrafo_texto_indexado": texto_parrafo,
+                                "parrafo_texto_original": texto_original,
+                                                        
+                            }
+                                                        
+                            agregar_documento_faiss(texto_parrafo,metadata_indice)
+                            # Agregar a ChromaDB
+                            agregar_documento_chroma(texto_parrafo, metadata_indice)
 
 
    
