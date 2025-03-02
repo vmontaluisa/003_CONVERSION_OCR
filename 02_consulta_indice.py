@@ -21,7 +21,8 @@ load_dotenv()
 
 
 
-MONGO_DB = os.getenv("MONGO_DB", "documentos_legales")
+
+MONGO_DB = os.getenv("MONGO_DB", "")
 MONGODB_HOST=os.getenv("MONGODB_HOST","")
 MONGODB_PORT=os.getenv("MONGODB_PORT","")
 MONGODB_AUTH_SOURCE=os.getenv("MONGODB_AUTH_SOURCE","")
@@ -32,14 +33,23 @@ MONGO_COLLECTION_PARRAFOS = os.getenv("MONGO_COLLECTION_PARRAFOS", "")
 MONGODB_USER_ENCODED = urllib.parse.quote_plus(MONGODB_USER)
 MONGODB_PASSWORD_ENCODED = urllib.parse.quote_plus(MONGODB_PASSWORD)
 MONGODB_URI = f"mongodb://{MONGODB_USER_ENCODED}:{MONGODB_PASSWORD_ENCODED}@{MONGODB_HOST}:{MONGODB_PORT}/{MONGODB_PORT}?authSource={MONGODB_AUTH_SOURCE}"
+LOG_DIR = "logs"
+ARCHIVO_LOG="app.log"
+MODELO="hiiamsid/sentence_similarity_spanish_es"
+BASE_DIR = os.getenv("BASE_DIR", "")
+DIR_FAISS = os.path.join(BASE_DIR, "07_FAISS")
+DIR_CHROMA = os.path.join(BASE_DIR, "07_CHROMADB")
+CHROMA_COLECCION="documentos_legales"
 
 
+
+################################################################
 
 client = pymongo.MongoClient(MONGODB_URI)
 db = client[MONGO_DB]
 coleccion_faiss = db[MONGO_COLLECTION_FAISS]
 
-
+################################################################
 # Definir la zona horaria de Guayaquil
 zona_horaria_guayaquil = pytz.timezone("America/Guayaquil")
 
@@ -50,11 +60,9 @@ def guayaquil_time(*args):
     return local_dt.timetuple()
 
 # Crear carpeta logs si no existe
-LOG_DIR = "logs"
 os.makedirs(LOG_DIR, exist_ok=True)
-
 # Configurar el logger con zona horaria de Guayaquil
-LOG_FILE = os.path.join(LOG_DIR, "app.log")
+LOG_FILE = os.path.join(LOG_DIR, ARCHIVO_LOG)
 
 logging.Formatter.converter = guayaquil_time  # Usar la conversión a zona horaria local
 logging.basicConfig(
@@ -68,30 +76,21 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-
-
-
-
-# Cargar variables de entorno
-load_dotenv()
-
+################################################################
 
 # Iniciar FastAPI
 app = FastAPI(title="API de Búsqueda en FAISS y ChromaDB",
               description="API para realizar búsquedas en FAISS y ChromaDB usando embeddings.",
               version="1.0")
 
-# Verificar si MPS está disponible en Mac
+################################################################
 device = "mps" if torch.backends.mps.is_available() else "cpu"
-
 # Cargar modelo de embeddings
-modelo_legal = SentenceTransformer("PlanTL-GOB-ES/roberta-base-bne", device=device)
+
+modelo_legal = SentenceTransformer(MODELO, device=device)
 logging.info(f"✅ Modelo cargado en: {modelo_legal.device}")
 
 # Configurar rutas de los índices
-BASE_DIR = os.getenv("BASE_DIR", "../REPOSITORIO_DOCUMENTOS/preprocesamiento")
-DIR_FAISS = os.path.join(BASE_DIR, "07_FAISS")
-DIR_CHROMA = os.path.join(BASE_DIR, "07_CHROMADB")
 
 # Cargar índice FAISS
 INDEX_FILE = os.path.join(DIR_FAISS, "faiss_index.idx")
@@ -101,16 +100,26 @@ if os.path.exists(INDEX_FILE):
     index_faiss = faiss.read_index(INDEX_FILE)
     logging.info("✅ Índice FAISS cargado.")
 else:
-    index_faiss = faiss.IndexFlatL2(embedding_dim)  # Crear índice vacío si no existe
     logging.warning("⚠️ Índice FAISS vacío o no encontrado.")
 
 # Cargar base de datos ChromaDB
 chroma_client = chromadb.PersistentClient(path=DIR_CHROMA)
-chroma_collection = chroma_client.get_or_create_collection(name="documentos_legales")
+chroma_collection = chroma_client.get_or_create_collection(
+    name=CHROMA_COLECCION,
+    metadata={"hnsw:space": "l2"}  # Puedes cambiar "cosine" por "l2" o "ip"
+    )
+'''
+	•	"l2" → Distancia Euclidiana (buena para datos densos)
+	•	"ip" → Producto interno (útil si los embeddings están normalizados)
+	•	"cosine" → Similitud coseno (recomendada para texto)
+'''
+
 logging.info("✅ Base de datos ChromaDB cargada.")
+################################################################################################################################
 
 
-@app.get("/buscar/faiss")
+
+@app.get("/buscar/faiss")################################################################################
 def buscar_en_faiss(query: str = Query(..., description="Texto a buscar en FAISS"), top_k: int = 5):
     """
     API REST para realizar una búsqueda en FAISS y devolver los resultados más relevantes.
@@ -132,26 +141,25 @@ def buscar_en_faiss(query: str = Query(..., description="Texto a buscar en FAISS
                 "distancia": float(distances[0][i]),
                 "metadata": metadata if metadata else {}
             })
-
-
-
         return {"query": query, "resultados": resultados}
 
     except Exception as e:
         logging.error(f"❌ Error en búsqueda FAISS: {e}\n{traceback.format_exc()}")
         return {"error": str(e)}
 
-
-@app.get("/buscar/chromadb")
-def buscar_en_chromadb(query: str = Query(..., description="Texto a buscar en ChromaDB"), top_k: int = 5):
+@app.get("/buscar/chromadb")################################################################################
+def buscar_en_chromadb(query: str = Query(..., description="Texto a buscar en ChromaDB"), top_k: int = 5,filtro=None):
     """
     API REST para realizar una búsqueda en ChromaDB y devolver los resultados más relevantes.
     """
     try:
+        #filtro={"articulo_numero": "173"}
+        
         vector_query = modelo_legal.encode([query], device=device)[0].tolist()
         resultados = chroma_collection.query(
             query_embeddings=[vector_query],
-            n_results=top_k
+            n_results=top_k,
+            where=filtro  
         )
 
         documentos = []
@@ -167,6 +175,27 @@ def buscar_en_chromadb(query: str = Query(..., description="Texto a buscar en Ch
     except Exception as e:
         logging.error(f"❌ Error en búsqueda ChromaDB: {e}\n{traceback.format_exc()}")
         return {"error": str(e)}
+
+
+
+@app.get("/buscar/llms")################################################################################
+def buscar_llms(mensaje: str = Query(..., description="Mensaje a repetir")):
+    """
+    API REST que devuelve el mismo mensaje enviado.
+    """
+    try:
+        logging.info(f"📢 Eco recibido: {mensaje}")
+        mensaje='Dijiste:'+mensaje
+        return {"mensaje_recibido": mensaje, "respuesta": f"Eco: {mensaje}"}
+    
+    
+    
+    except Exception as e:
+        logging.error(f"❌ Error en el endpoint de eco: {e}\n{traceback.format_exc()}")
+        return {"error": str(e)}
+
+
+################################################################################################################################
 
 
 # Ejecución del servidor

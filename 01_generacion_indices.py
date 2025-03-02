@@ -36,9 +36,9 @@ load_dotenv()
 ##############################################################################
 #
 # REPOSITORIO DE PROCESAMIENTO DE DOCUMENTOS
-#
+#  ../REPOSITORIO_DOCUMENTOS/preprocesamiento
 #https://github.com/vmontaluisa/003_CONVERSION_OCR_preprocesamiento
-BASE_DIR = os.getenv("BASE_DIR", "../REPOSITORIO_DOCUMENTOS/preprocesamiento")
+BASE_DIR = os.getenv("BASE_DIR", "")
 ##############################################################################
 
 
@@ -75,9 +75,15 @@ OPENAI_MODELO=os.getenv("OPENAI_MODELO", "")
 LENGUAJE=os.getenv("LENGUAJE", "")
 OPENAI_MAXIMO_TEXTO=int(os.getenv("OPENAI_MAXIMO_TEXTO", ""))
 
-#CHROMA_DB
+
+MODELO=os.getenv("MODELO",  "hiiamsid/sentence_similarity_spanish_es")
+FAISS_ARCHIVO_INDICE= "faiss_index.idx"
+CHROMA_COLECCION="documentos_legales"
 CHROMA_DB_PATH=f"{DIR_CHROMA}"  # Ruta donde se guardará la base de datos
-os.makedirs(CHROMA_DB_PATH, exist_ok=True)
+
+
+#CHROMA_DB
+#os.makedirs(CHROMA_DB_PATH, exist_ok=True)
 
 
 # Pregunta OPENAI
@@ -118,7 +124,7 @@ PALABRAS_IGNORADAS = {
 
 
 # Crear carpetas si no existen
-for d in [DIR_NUEVOS, DIR_PROCESADOS, DIR_ERRORES, DIR_METADATA, DIR_OCR, DIR_IMAGENES, DIR_LOGS, DIR_FAISS]:
+for d in [DIR_NUEVOS, DIR_PROCESADOS, DIR_ERRORES, DIR_METADATA, DIR_OCR, DIR_IMAGENES, DIR_LOGS, DIR_FAISS,DIR_CHROMA]:
     os.makedirs(d, exist_ok=True)
 
 #coneccion mongo ##########################################
@@ -158,7 +164,7 @@ chroma_collection=None
 # Inicializar cliente de ChromaDB
 try:
     chroma_client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
-    chroma_collection = chroma_client.get_or_create_collection(name="documentos_legales")
+    chroma_collection = chroma_client.get_or_create_collection(name=CHROMA_COLECCION)
     logging.info(f"✅ Base de datos ChromaDB creada en {CHROMA_DB_PATH}")
 except Exception as e:
     logging.error(f"❌ Error iniciando ChromaDB: {e}\n{traceback.format_exc()}")
@@ -172,19 +178,18 @@ device = "mps" if torch.backends.mps.is_available() else "cpu"
 # Cargar el modelo en MPS
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-#MODELO="PlanTL-GOB-ES/roberta-base-bne"
-MODELO="hiiamsid/sentence_similarity_spanish_es"
-
 modelo_legal = SentenceTransformer(MODELO, device=device)
 logging.info(f"✅ Modelo cargado en: {device}")
+embedding_dim = modelo_legal.get_sentence_embedding_dimension()
+logging.info(f"Tamaño de los embeddings: {embedding_dim}")
 
 # Crear índice FAISS para embeddings
 embedding_dim = 768
-INDEX_FILE = os.path.join(DIR_FAISS, "faiss_index.idx")
+INDEX_FILE = os.path.join(DIR_FAISS,FAISS_ARCHIVO_INDICE)
 
 # Iniciar ChromaDB
 chroma_client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
-chroma_collection = chroma_client.get_or_create_collection(name="documentos_legales")
+chroma_collection = chroma_client.get_or_create_collection(name=CHROMA_COLECCION)
 
 
 
@@ -668,5 +673,4 @@ if __name__ == "__main__":
     
     
     
-   # cargar_indice()
 
