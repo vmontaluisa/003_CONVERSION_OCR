@@ -391,7 +391,7 @@ def procesar_pdfs():############################################################
         logging.info("📂 No hay nuevos PDFs para procesar.")
         return
 
-    for archivo in  tqdm(archivos_pdf, desc="Procesando PDFs"):
+    for archivo in  tqdm(archivos_pdf, desc=f"Procesando PDFs"  , disable=(len(archivos_pdf) == 1) ):
         pdf_path = os.path.join(DIR_NUEVOS, archivo)
         logging.info(f"🔍 Procesando: {archivo}")
         
@@ -423,13 +423,14 @@ def extraer_texto_y_metadatos(pdf_path,nomnre_archivo):#########################
 
         unid_archivo=str(uuid.uuid4())
         metadatos = {
-            "archivo": os.path.basename(pdf_path).replace(" ", "_"),
-            "title": metadata.get("title", "Unknown"),
-            "unid": unid_archivo,
-            "size_kb": round(size / 1024, 2),
-            "author": metadata.get("author", "Unknown"),
-            "creation_date": metadata.get("creationDate", "Unknown"),
-            "paginas": num_pages,
+            "archivo_nombre": nomnre_archivo,
+            "archivo_nombre_espacios": os.path.basename(pdf_path).replace(" ", "_"),
+            "archivo_titulo": metadata.get("title", "Unknown"),
+            "archivo_unid": unid_archivo,
+            "archivo_size_kb": round(size / 1024, 2),
+            "archivo_author": metadata.get("author", "Unknown"),
+            "archivo_creation_date": metadata.get("creationDate", "Unknown"),
+            "archivo_paginas": num_pages,
             "texto": []
         }
         extract_metadata_and_text(pdf_path) #Genera el documento ocrtxt
@@ -451,7 +452,7 @@ def extraer_texto_y_metadatos(pdf_path,nomnre_archivo):#########################
             
             
             # Guardar imagen de la página
-            nommbre_imagen=f"{metadatos['unid']}_pag{num_pagina+1}.png"
+            nommbre_imagen=f"{metadatos['archivo_unid']}_pag{num_pagina+1}.png"
             img_filename = os.path.join(DIR_IMAGENES,nommbre_imagen )
             imagenes_paginas[num_pagina].save(img_filename, "PNG")
             numero_parrafos=0
@@ -518,14 +519,14 @@ def extraer_texto_y_metadatos(pdf_path,nomnre_archivo):#########################
                             articulo_actual=''
 
                             
-                    pattern = r"^T[ÍI]TULO\s+\d+"
+                    pattern = r"^\s*T[ÍI]TULO\b"
                     match = re.match(pattern, texto_mayusculas, re.IGNORECASE)
                     if match:    
                             nombre_seccion=clean_text(texto_original)
                             nombre_seccion=nombre_seccion.upper()
                             articulo_actual=''
 
-                    pattern = r"^CAP[ÍI]TULO\s+\d+"
+                    pattern = r"^\s*CAP[ÍI]TULO\b"
                     match = re.match(pattern, texto_mayusculas, re.IGNORECASE)
                     if match:    
                             nombre_seccion=clean_text(texto_original)
@@ -533,7 +534,7 @@ def extraer_texto_y_metadatos(pdf_path,nomnre_archivo):#########################
                             articulo_actual=''
 
 
-                    pattern = r"^SECCI[ÓO]N\s+(\w+)"
+                    pattern = r"^\s*SECCI[ÓO]N\b"
                     match = re.match(pattern, texto_mayusculas, re.IGNORECASE)
                     if match:    
                             nombre_seccion=clean_text(texto_original)
@@ -602,7 +603,7 @@ def extraer_texto_y_metadatos(pdf_path,nomnre_archivo):#########################
                             "parrafo_coordenadas_y0":(coordenadas["y0"]),
                             "parrafo_coordenadas_x1":(coordenadas["x1"]),
                             "parrafo_coordenadas_y1":(coordenadas["y1"]),
-                            "paparrafo_texto_indexadorrafo": texto_parrafo,
+                            "parrafo_texto_indexado": texto_parrafo,
                             "parrafo_texto_original": texto_original,
                                                     
                         }
