@@ -14,6 +14,7 @@ from datetime import datetime
 import urllib.parse
 import pymongo
 
+from fastapi.middleware.cors import CORSMiddleware
 
 
 # Cargar configuraciones desde .env
@@ -49,6 +50,8 @@ client = pymongo.MongoClient(MONGODB_URI)
 db = client[MONGO_DB]
 coleccion_faiss = db[MONGO_COLLECTION_FAISS]
 
+coleccion_parrafos = db[MONGO_COLLECTION_PARRAFOS]
+
 ################################################################
 # Definir la zona horaria de Guayaquil
 zona_horaria_guayaquil = pytz.timezone("America/Guayaquil")
@@ -82,6 +85,15 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="API de Búsqueda en FAISS y ChromaDB",
               description="API para realizar búsquedas en FAISS y ChromaDB usando embeddings.",
               version="1.0")
+
+# Configurar CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Permitir todas las solicitudes (puedes cambiarlo a tu dominio específico)
+    allow_credentials=True,
+    allow_methods=["*"],  # Permitir todos los métodos HTTP (GET, POST, etc.)
+    allow_headers=["*"],  # Permitir todos los encabezados
+)
 
 ################################################################
 device = "mps" if torch.backends.mps.is_available() else "cpu"
@@ -176,6 +188,19 @@ def buscar_en_chromadb(query: str = Query(..., description="Texto a buscar en Ch
         logging.error(f"❌ Error en búsqueda ChromaDB: {e}\n{traceback.format_exc()}")
         return {"error": str(e)}
 
+
+
+
+@app.get("/documentos", summary="Obtener todos los documentos")###############################################################
+def obtener_documentos():
+    """
+    Devuelve todos los documentos almacenados en la colección `documentos_parrafos`.
+    """
+    documentos = []
+    for doc in coleccion_parrafos.find({}, {"_id": 0, "texto": 0 }):  # Excluir `_id`
+        documentos.append(doc)
+    
+    return {"documentos": documentos}
 
 
 @app.get("/buscar/llms")################################################################################
