@@ -29,6 +29,8 @@ Deprecated==1.2.18
 distro==1.9.0
 dnspython==2.7.0
 durationpy==0.9
+es_core_news_lg @ https://github.com/explosion/spacy-models/releases/download/es_core_news_lg-3.8.0/es_core_news_lg-3.8.0-py3-none-any.whl#sha256=7c6c212715a12f31aacde3361754436945ff7376fb24cde57d0c277c9c9b050b
+es_core_news_md @ https://github.com/explosion/spacy-models/releases/download/es_core_news_md-3.8.0/es_core_news_md-3.8.0-py3-none-any.whl#sha256=478b8bb3f3e8eb149192f7d80e7cd64f990b7e9bccbc5329df41a57e86326be2
 es_core_news_sm @ https://github.com/explosion/spacy-models/releases/download/es_core_news_sm-3.8.0/es_core_news_sm-3.8.0-py3-none-any.whl#sha256=e451a83d6df79b87e9eed0cb553f03e99e36a3bab18a7b79f0dcfd1fdf875e12
 etelemetry==0.3.1
 executing==2.2.0

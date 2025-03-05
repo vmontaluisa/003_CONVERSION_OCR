@@ -49,7 +49,8 @@ ARCHIVO_LOG="app.log"
 MODELO=os.getenv("MODELO", "")
 
 ZONA_HORARIA=os.getenv("ZONA_HORARIA", "")
-PUERTO=os.getenv("PUERTO_API_RESTO", "")
+puerto_txt=os.getenv("PUERTO_API_RESTO", "")
+PUERTO=int(puerto_txt)
 
 DIR_FAISS = os.path.join(BASE_DIR, "07_FAISS")
 DIR_CHROMA = os.path.join(BASE_DIR, "07_CHROMADB")
@@ -123,8 +124,6 @@ device = "mps" if torch.backends.mps.is_available() else "cpu"
 modelo_legal = SentenceTransformer(MODELO, device=device)
 logging.info(f"✅ Modelo cargado en: {modelo_legal.device}")
 
-# Configurar rutas de los índices
-
 # Cargar índice FAISS
 INDEX_FILE = os.path.join(DIR_FAISS, FAISS_ARCHIVO_INDICE)
 embedding_dim = 768
@@ -139,7 +138,7 @@ else:
 chroma_client = chromadb.PersistentClient(path=DIR_CHROMA)
 chroma_collection = chroma_client.get_or_create_collection(
     name=CHROMA_COLECCION,
-    metadata={"hnsw:space": "l2"}  # Puedes cambiar "cosine" por "l2" o "ip"
+    metadata={"hnsw:space": "cosine"}  # Puedes cambiar "cosine" por "l2" o "ip"
     )
 '''
 	•	"l2" → Distancia Euclidiana (buena para datos densos)
@@ -148,6 +147,9 @@ chroma_collection = chroma_client.get_or_create_collection(
 '''
 
 logging.info("✅ Base de datos ChromaDB cargada.")
+logging.info("##############################################################")
+logging.info(f"INDICES: {BASE_DIR}")
+logging.info("##############################################################")
 
 
 
@@ -161,8 +163,14 @@ def buscar_en_faiss(query: str = Query(..., description="Texto a buscar en FAISS
     API REST para realizar una búsqueda en FAISS y devolver los resultados más relevantes.
     """
     try:
-        vector_query = modelo_legal.encode([query], device=device)
-        distances, indices = index_faiss.search(np.array(vector_query).astype('float32'), top_k)
+        #vector_query = modelo_legal.encode([query], device=device)
+        #distances, indices = index_faiss.search(np.array(vector_query).astype('float32'), top_k)
+        
+        vector_query = modelo_legal.encode([query], device=device)  #Generar el embedding de la consulta
+        vector_query = np.array(vector_query).astype('float32')  #Convertir a float32 para FAISS (sin normalizar)
+        #vector_query /= np.linalg.norm(vector_query)   #Normalizar el vector si trabajamos con similitud coseno
+        distances, indices = index_faiss.search(vector_query, top_k)
+        
 
         resultados = []
         for i in range(top_k):

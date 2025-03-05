@@ -87,7 +87,7 @@ OPENAI_MAXIMO_TEXTO=int(os.getenv("OPENAI_MAXIMO_TEXTO", ""))
 # OTRAS CONFIGURACIONES
 ##############################################################################
 MODELO=os.getenv("MODELO", "")
-
+MODELO_LENGUAJE=os.getenv("MODELO_LENGUAJE", "")
 ZONA_HORARIA=os.getenv("ZONA_HORARIA", "")
 
 
@@ -176,7 +176,7 @@ logging.basicConfig(
 ##############################################################################
 MODELO=os.getenv("MODELO",  MODELO)
 
-nlp = spacy.load("es_core_news_sm")
+nlp = spacy.load(MODELO_LENGUAJE) #tokenización, lematización, análisis gramatical 
 
 # Verificar si MPS está disponible en Mac
 device = "mps" if torch.backends.mps.is_available() else "cpu"
@@ -198,14 +198,17 @@ chroma_collection=None
 # Inicializar cliente de ChromaDB
 try:
     chroma_client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
-    chroma_collection = chroma_client.get_or_create_collection(name=CHROMA_COLECCION)
+    chroma_collection = chroma_client.get_or_create_collection(
+        name=CHROMA_COLECCION,
+        metadata={"hnsw:space": "cosine"} 
+        )
     logging.info(f"✅ Base de datos ChromaDB creada en {CHROMA_DB_PATH}")
 except Exception as e:
     logging.error(f"❌ Error iniciando ChromaDB: {e}\n{traceback.format_exc()}")
 
 # Iniciar ChromaDB
-chroma_client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
-chroma_collection = chroma_client.get_or_create_collection(name=CHROMA_COLECCION)
+#chroma_client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
+#chroma_collection = chroma_client.get_or_create_collection(name=CHROMA_COLECCION)
 
 
 ##############################################################################
@@ -213,7 +216,7 @@ chroma_collection = chroma_client.get_or_create_collection(name=CHROMA_COLECCION
 ##############################################################################
 
 # Crear índice FAISS para embeddings
-embedding_dim = 768
+embedding_dim = 768  # Sentence-BERT (SBERT) y genera embeddings de dimensión 768
 INDEX_FILE = os.path.join(DIR_FAISS,FAISS_ARCHIVO_INDICE)
 
 
@@ -272,7 +275,9 @@ def cargar_indice():
     if os.path.exists(INDEX_FILE):
         index = faiss.read_index(INDEX_FILE)
     else:
-        index = faiss.IndexFlatL2(embedding_dim)        
+#        index = faiss.IndexFlatL2(embedding_dim)    #  distancia Euclidiana (L2)  
+        index = faiss.IndexFlat(embedding_dim, faiss.METRIC_INNER_PRODUCT) #índice en FAISS con Producto Interno (IP)
+ 
         logging.info("🔄 Creando un nuevo índice FAISS vacío." )
 
 def guardar_indice():
@@ -288,8 +293,9 @@ def agregar_documento_faiss(texto, metadata_json):##############################
     index.add(np.array([embedding]).astype('float32'))
     guardar_indice()  # Guardamos el índice actualizado
     ultimo_indice=index.ntotal - 1    
-    metadata_json['indice_faiss']=ultimo_indice
-    coleccion_faiss.insert_one(metadata_json)
+    metadata_json_copy = metadata_json.copy()
+    metadata_json_copy['indice_faiss']=ultimo_indice
+    coleccion_faiss.insert_one(metadata_json_copy)
     return ultimo_indice  # El último índice agregado
  
 
