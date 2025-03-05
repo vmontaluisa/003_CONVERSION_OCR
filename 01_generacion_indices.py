@@ -1,33 +1,29 @@
 import os
 import shutil
-import fitz  # PyMuPDF
-import pytesseract
+import fitz  # PyMuPDF para manipulación de PDFs
+import pytesseract  # OCR para extraer texto de imágenes
 import json
-import pymongo
+import pymongo  # Conexión con MongoDB
 import logging
 import re
 import uuid
-import faiss
+import faiss  # Indexación de búsqueda basada en vectores
 import numpy as np
-from pdf2image import convert_from_path
+from pdf2image import convert_from_path  # Conversión de PDF a imágenes
 from datetime import datetime
-from dotenv import load_dotenv
-from sentence_transformers import SentenceTransformer
-from fastapi import FastAPI, Query
+from dotenv import load_dotenv  # Carga de variables de entorno
+from sentence_transformers import SentenceTransformer  # Modelo de embeddings
+from fastapi import FastAPI, Query  # API en FastAPI
 from typing import List
-import pytz
-from datetime import datetime
-
-import spacy
-from spacy.lang.es.stop_words import STOP_WORDS
+import pytz  # Manejo de zonas horarias
+import spacy  # Procesamiento de lenguaje natural
+from spacy.lang.es.stop_words import STOP_WORDS  # Stopwords en español
 import urllib.parse
-from tqdm import tqdm
-from openai import OpenAI
-import torch
-import logging
+from tqdm import tqdm  # Barras de progreso
+from openai import OpenAI  # API de OpenAI
+import torch  # Para uso de aceleración en hardware
 import traceback
-
-import chromadb
+import chromadb  # Base de datos vectorial para búsqueda semántica
 
 # Cargar configuraciones desde .env
 load_dotenv()
@@ -53,9 +49,18 @@ DIR_FAISS = os.path.join(BASE_DIR, os.getenv("DIR_FAISS", "07_FAISS"))
 DIR_CHROMA = os.path.join(BASE_DIR, os.getenv("DIR_CHROMA", "07_CHROMADB"))
 
 
+# Crear los directorios si no existen
+for directorio in [DIR_NUEVOS, DIR_PROCESADOS,DIR_ERRORES,DIR_METADATA,DIR_OCR,DIR_IMAGENES,DIR_LOGS ,DIR_FAISS, DIR_CHROMA]:
+   if not os.path.exists(directorio):
+        os.makedirs(directorio, exist_ok=True)
+        print(f"📂 Verificado o creado: {directorio}")
+        logging.info(f"📂 Verificado o creado: {directorio}")
+     
 
-# Conectar a MongoDB usando variables de entorno
-#MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
+
+##############################################################################
+# CONFIGURACIÓN DE MONGO DB PARA ALMACENAMIENTO
+##############################################################################
 MONGO_DB = os.getenv("MONGO_DB", "documentos_legales")
 MONGODB_HOST=os.getenv("MONGODB_HOST","")
 MONGODB_PORT=os.getenv("MONGODB_PORT","")
@@ -65,27 +70,37 @@ MONGODB_PASSWORD=os.getenv("MONGODB_PASSWORD","")
 MONGO_COLLECTION_CHROMA = os.getenv("MONGO_COLLECTION_CHROMA", "")
 MONGO_COLLECTION_FAISS = os.getenv("MONGO_COLLECTION_FAISS", "")
 MONGO_COLLECTION_PARRAFOS = os.getenv("MONGO_COLLECTION_PARRAFOS", "")
+
+# Codificación de usuario y contraseña para conexión segura
 MONGODB_USER_ENCODED = urllib.parse.quote_plus(MONGODB_USER)
 MONGODB_PASSWORD_ENCODED = urllib.parse.quote_plus(MONGODB_PASSWORD)
 MONGODB_URI = f"mongodb://{MONGODB_USER_ENCODED}:{MONGODB_PASSWORD_ENCODED}@{MONGODB_HOST}:{MONGODB_PORT}/{MONGODB_PORT}?authSource={MONGODB_AUTH_SOURCE}"
 
-#Open
+##############################################################################
+# CONFIGURACIÓN API OPENAI
+##############################################################################
 OPENAI_API_KEY=os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODELO=os.getenv("OPENAI_MODELO", "")
 LENGUAJE=os.getenv("LENGUAJE", "")
 OPENAI_MAXIMO_TEXTO=int(os.getenv("OPENAI_MAXIMO_TEXTO", ""))
 
-
+##############################################################################
+# CONFIGURACIÓN DE MODELOS DE EMBEDDINGS Y PROCESAMIENTO DE TEXTO
+##############################################################################
 MODELO=os.getenv("MODELO",  "hiiamsid/sentence_similarity_spanish_es")
+
+
+##############################################################################
+# CONFIGURACIÓN DE FAISS PARA BÚSQUEDAS VECTORIALES
+##############################################################################
 FAISS_ARCHIVO_INDICE= "faiss_index.idx"
 CHROMA_COLECCION="documentos_legales"
 CHROMA_DB_PATH=f"{DIR_CHROMA}"  # Ruta donde se guardará la base de datos
 
 
-#CHROMA_DB
-#os.makedirs(CHROMA_DB_PATH, exist_ok=True)
-
-
+##############################################################################
+# CONFIGURACIÓN PARA PREPROCESAMIENTO
+##############################################################################
 # Pregunta OPENAI
 PREGUNTAS = ["¿Numero Registro Oficial o Suplemento?",
                  "¿Fecha de publicacion en formato YYYY-MM-DD?", 
@@ -121,11 +136,6 @@ PALABRAS_IGNORADAS = {
 
 
 ##############################################################################
-
-
-# Crear carpetas si no existen
-for d in [DIR_NUEVOS, DIR_PROCESADOS, DIR_ERRORES, DIR_METADATA, DIR_OCR, DIR_IMAGENES, DIR_LOGS, DIR_FAISS,DIR_CHROMA]:
-    os.makedirs(d, exist_ok=True)
 
 #coneccion mongo ##########################################
 client = pymongo.MongoClient(MONGODB_URI)

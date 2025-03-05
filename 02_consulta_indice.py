@@ -49,11 +49,10 @@ CHROMA_COLECCION="documentos_legales"
 client = pymongo.MongoClient(MONGODB_URI)
 db = client[MONGO_DB]
 coleccion_faiss = db[MONGO_COLLECTION_FAISS]
-
 coleccion_parrafos = db[MONGO_COLLECTION_PARRAFOS]
 
 ################################################################
-# Definir la zona horaria de Guayaquil
+# Definir la zona horaria de Guayaquil para log
 zona_horaria_guayaquil = pytz.timezone("America/Guayaquil")
 
 def guayaquil_time(*args):
