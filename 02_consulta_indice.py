@@ -56,7 +56,8 @@ PUERTO=8000
 
 DIR_FAISS = os.path.join(BASE_DIR, "07_FAISS")
 DIR_CHROMA = os.path.join(BASE_DIR, "07_CHROMADB")
-CHROMA_COLECCION="documentos_legales"
+CHROMA_COLECCION= os.getenv("CHROMA_COLECCION","") 
+FAISS_ARCHIVO_INDICE=  os.getenv("FAISS_ARCHIVO_INDICE","")  
 
 
 
@@ -128,7 +129,7 @@ logging.info(f"✅ Modelo cargado en: {modelo_legal.device}")
 # Configurar rutas de los índices
 
 # Cargar índice FAISS
-INDEX_FILE = os.path.join(DIR_FAISS, "faiss_index.idx")
+INDEX_FILE = os.path.join(DIR_FAISS, FAISS_ARCHIVO_INDICE)
 embedding_dim = 768
 
 if os.path.exists(INDEX_FILE):

@@ -93,10 +93,10 @@ ZONA_HORARIA="America/Guayaquil"
 
 
 ##############################################################################
-# CONFIGURACIÓN DE FAISS PARA BÚSQUEDAS VECTORIALES
+# CONFIGURACIÓN DE FAISS y CHROMADB PARA BÚSQUEDAS VECTORIALES
 ##############################################################################
-FAISS_ARCHIVO_INDICE= "faiss_index.idx"
-CHROMA_COLECCION="documentos_legales"
+CHROMA_COLECCION= os.getenv("CHROMA_COLECCION","") 
+FAISS_ARCHIVO_INDICE=  os.getenv("FAISS_ARCHIVO_INDICE","")  
 CHROMA_DB_PATH=f"{DIR_CHROMA}"  # Ruta donde se guardará la base de datos
 
 
