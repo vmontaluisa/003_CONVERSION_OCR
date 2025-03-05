@@ -87,9 +87,9 @@ OPENAI_MAXIMO_TEXTO=int(os.getenv("OPENAI_MAXIMO_TEXTO", ""))
 ##############################################################################
 # OTRAS CONFIGURACIONES
 ##############################################################################
-MODELO="hiiamsid/sentence_similarity_spanish_es"
+MODELO=os.getenv("MODELO", "")
 
-ZONA_HORARIA="America/Guayaquil"
+ZONA_HORARIA=os.getenv("ZONA_HORARIA", "")
 
 
 ##############################################################################

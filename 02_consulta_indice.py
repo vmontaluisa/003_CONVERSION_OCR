@@ -31,9 +31,6 @@ BASE_DIR = os.getenv("BASE_DIR", "")
 ##############################################################################
 
 
-
-
-
 MONGO_DB = os.getenv("MONGO_DB", "")
 MONGODB_HOST=os.getenv("MONGODB_HOST","")
 MONGODB_PORT=os.getenv("MONGODB_PORT","")
@@ -49,10 +46,10 @@ MONGODB_URI = f"mongodb://{MONGODB_USER_ENCODED}:{MONGODB_PASSWORD_ENCODED}@{MON
 LOG_DIR = "logs"
 ARCHIVO_LOG="app.log"
 
-MODELO="hiiamsid/sentence_similarity_spanish_es"
+MODELO=os.getenv("MODELO", "")
 
-ZONA_HORARIA="America/Guayaquil"
-PUERTO=8000
+ZONA_HORARIA=os.getenv("ZONA_HORARIA", "")
+PUERTO=os.getenv("PUERTO_API_RESTO", "")
 
 DIR_FAISS = os.path.join(BASE_DIR, "07_FAISS")
 DIR_CHROMA = os.path.join(BASE_DIR, "07_CHROMADB")
