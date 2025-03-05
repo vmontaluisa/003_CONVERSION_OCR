@@ -22,6 +22,17 @@ load_dotenv()
 
 
 
+##############################################################################
+#
+# REPOSITORIO DE PROCESAMIENTO DE DOCUMENTOS
+#  ../REPOSITORIO_DOCUMENTOS/preprocesamiento
+#https://github.com/vmontaluisa/003_CONVERSION_OCR_preprocesamiento
+BASE_DIR = os.getenv("BASE_DIR", "")
+##############################################################################
+
+
+
+
 
 MONGO_DB = os.getenv("MONGO_DB", "")
 MONGODB_HOST=os.getenv("MONGODB_HOST","")
@@ -34,26 +45,34 @@ MONGO_COLLECTION_PARRAFOS = os.getenv("MONGO_COLLECTION_PARRAFOS", "")
 MONGODB_USER_ENCODED = urllib.parse.quote_plus(MONGODB_USER)
 MONGODB_PASSWORD_ENCODED = urllib.parse.quote_plus(MONGODB_PASSWORD)
 MONGODB_URI = f"mongodb://{MONGODB_USER_ENCODED}:{MONGODB_PASSWORD_ENCODED}@{MONGODB_HOST}:{MONGODB_PORT}/{MONGODB_PORT}?authSource={MONGODB_AUTH_SOURCE}"
+
 LOG_DIR = "logs"
 ARCHIVO_LOG="app.log"
+
 MODELO="hiiamsid/sentence_similarity_spanish_es"
-BASE_DIR = os.getenv("BASE_DIR", "")
+
+ZONA_HORARIA="America/Guayaquil"
+PUERTO=8000
+
 DIR_FAISS = os.path.join(BASE_DIR, "07_FAISS")
 DIR_CHROMA = os.path.join(BASE_DIR, "07_CHROMADB")
 CHROMA_COLECCION="documentos_legales"
 
 
 
-################################################################
-
+##############################################################################
+# CONECCIÓN MONGO PARA leer metadatos
+##############################################################################
 client = pymongo.MongoClient(MONGODB_URI)
 db = client[MONGO_DB]
 coleccion_faiss = db[MONGO_COLLECTION_FAISS]
 coleccion_parrafos = db[MONGO_COLLECTION_PARRAFOS]
 
-################################################################
+##############################################################################
+# CONFIGURACIÓN PARA LOGS
+##############################################################################
 # Definir la zona horaria de Guayaquil para log
-zona_horaria_guayaquil = pytz.timezone("America/Guayaquil")
+zona_horaria_guayaquil = pytz.timezone(ZONA_HORARIA)
 
 def guayaquil_time(*args):
     """Convierte la hora UTC a la zona horaria de Guayaquil."""
@@ -78,9 +97,11 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-################################################################
 
-# Iniciar FastAPI
+
+##############################################################################
+# FAST API INICIALIZACIÓN
+##############################################################################
 app = FastAPI(title="API de Búsqueda en FAISS y ChromaDB",
               description="API para realizar búsquedas en FAISS y ChromaDB usando embeddings.",
               version="1.0")
@@ -94,7 +115,10 @@ app.add_middleware(
     allow_headers=["*"],  # Permitir todos los encabezados
 )
 
-################################################################
+##############################################################################
+# LECTURA DE INDICES
+##############################################################################
+
 device = "mps" if torch.backends.mps.is_available() else "cpu"
 # Cargar modelo de embeddings
 
@@ -126,9 +150,12 @@ chroma_collection = chroma_client.get_or_create_collection(
 '''
 
 logging.info("✅ Base de datos ChromaDB cargada.")
-################################################################################################################################
 
 
+
+##############################################################################
+# FUNCIONES PARA EXPONER API REST FAISS
+##############################################################################
 
 @app.get("/buscar/faiss")################################################################################
 def buscar_en_faiss(query: str = Query(..., description="Texto a buscar en FAISS"), top_k: int = 5):
@@ -157,6 +184,11 @@ def buscar_en_faiss(query: str = Query(..., description="Texto a buscar en FAISS
     except Exception as e:
         logging.error(f"❌ Error en búsqueda FAISS: {e}\n{traceback.format_exc()}")
         return {"error": str(e)}
+
+
+##############################################################################
+# FUNCIONES PARA EXPONER API REST CHROMADB
+##############################################################################
 
 @app.get("/buscar/chromadb")################################################################################
 def buscar_en_chromadb(query: str = Query(..., description="Texto a buscar en ChromaDB"), top_k: int = 5,filtro=None):
@@ -189,8 +221,10 @@ def buscar_en_chromadb(query: str = Query(..., description="Texto a buscar en Ch
 
 
 
-
-@app.get("/documentos", summary="Obtener todos los documentos")###############################################################
+##############################################################################
+# FUNCIONES PARA EXPONER METADATA
+##############################################################################
+@app.get("/documentos", summary="Obtener todos los documentos")
 def obtener_documentos():
     """
     Devuelve todos los documentos almacenados en la colección `documentos_parrafos`.
@@ -202,7 +236,11 @@ def obtener_documentos():
     return {"documentos": documentos}
 
 
-@app.get("/buscar/llms")################################################################################
+
+##############################################################################
+# FUNCIONES PARA EXPONER LLMS
+##############################################################################
+@app.get("/buscar/llms")
 def buscar_llms(mensaje: str = Query(..., description="Mensaje a repetir")):
     """
     API REST que devuelve el mismo mensaje enviado.
@@ -219,11 +257,12 @@ def buscar_llms(mensaje: str = Query(..., description="Mensaje a repetir")):
         return {"error": str(e)}
 
 
-################################################################################################################################
 
-
+##############################################################################
+# INICIO PROGRAMA
+##############################################################################
 # Ejecución del servidor
 if __name__ == "__main__":
     import uvicorn
     logging.info("🚀 Iniciando servidor FastAPI...")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=PUERTO)

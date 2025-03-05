@@ -85,9 +85,11 @@ LENGUAJE=os.getenv("LENGUAJE", "")
 OPENAI_MAXIMO_TEXTO=int(os.getenv("OPENAI_MAXIMO_TEXTO", ""))
 
 ##############################################################################
-# CONFIGURACIÓN DE MODELOS DE EMBEDDINGS Y PROCESAMIENTO DE TEXTO
+# OTRAS CONFIGURACIONES
 ##############################################################################
-MODELO=os.getenv("MODELO",  "hiiamsid/sentence_similarity_spanish_es")
+MODELO="hiiamsid/sentence_similarity_spanish_es"
+
+ZONA_HORARIA="America/Guayaquil"
 
 
 ##############################################################################
@@ -136,18 +138,19 @@ PALABRAS_IGNORADAS = {
 
 
 ##############################################################################
-
-#coneccion mongo ##########################################
+# CONECCIÓN MONGO PARA ALMACENAR METADATA
+##############################################################################
 client = pymongo.MongoClient(MONGODB_URI)
 db = client[MONGO_DB]
 coleccion_chroma = db[MONGO_COLLECTION_CHROMA]
 coleccion_faiss = db[MONGO_COLLECTION_FAISS]
 coleccion_documentos_parrafos = db[MONGO_COLLECTION_PARRAFOS]
 
-
+##############################################################################
+# CONFIGURACIÓN PARA LOGS
+##############################################################################
 # Definir zona horaria de Guayaquil###########################################
-zona_horaria = pytz.timezone("America/Guayaquil")
-
+zona_horaria = pytz.timezone( ZONA_HORARIA)
 def guayaquil_time(*args):
     """Convierte la hora UTC a la zona horaria de Guayaquil."""
     utc_dt = datetime.utcnow().replace(tzinfo=pytz.utc)
@@ -164,22 +167,10 @@ logging.basicConfig(
 )
 
 
-
-#######################################################################################
-#######################################################################################
-
-chroma_client=None
-chroma_collection=None
-
-# Inicializar cliente de ChromaDB
-try:
-    chroma_client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
-    chroma_collection = chroma_client.get_or_create_collection(name=CHROMA_COLECCION)
-    logging.info(f"✅ Base de datos ChromaDB creada en {CHROMA_DB_PATH}")
-except Exception as e:
-    logging.error(f"❌ Error iniciando ChromaDB: {e}\n{traceback.format_exc()}")
-
-
+##############################################################################
+# CONFIGURACIÓN DE MODELOS DE EMBEDDINGS Y PROCESAMIENTO DE TEXTO
+##############################################################################
+MODELO=os.getenv("MODELO",  MODELO)
 
 nlp = spacy.load("es_core_news_sm")
 
@@ -193,19 +184,38 @@ logging.info(f"✅ Modelo cargado en: {device}")
 embedding_dim = modelo_legal.get_sentence_embedding_dimension()
 logging.info(f"Tamaño de los embeddings: {embedding_dim}")
 
-# Crear índice FAISS para embeddings
-embedding_dim = 768
-INDEX_FILE = os.path.join(DIR_FAISS,FAISS_ARCHIVO_INDICE)
+
+##############################################################################
+# CONFIGURACIÓN CHROMADB
+##############################################################################
+chroma_client=None
+chroma_collection=None
+
+# Inicializar cliente de ChromaDB
+try:
+    chroma_client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
+    chroma_collection = chroma_client.get_or_create_collection(name=CHROMA_COLECCION)
+    logging.info(f"✅ Base de datos ChromaDB creada en {CHROMA_DB_PATH}")
+except Exception as e:
+    logging.error(f"❌ Error iniciando ChromaDB: {e}\n{traceback.format_exc()}")
 
 # Iniciar ChromaDB
 chroma_client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
 chroma_collection = chroma_client.get_or_create_collection(name=CHROMA_COLECCION)
 
 
+##############################################################################
+# CONFIGURACIÓN FAISS
+##############################################################################
 
-#######################################################################################
-#######################################################################################
+# Crear índice FAISS para embeddings
+embedding_dim = 768
+INDEX_FILE = os.path.join(DIR_FAISS,FAISS_ARCHIVO_INDICE)
 
+
+##############################################################################
+# FUNCIONES DE PROCESAMIENTO DE INDICE CHROMA
+##############################################################################
 def limpiar_json(datos):
     """Reemplaza valores None con una cadena vacía ("")."""
     
@@ -249,9 +259,9 @@ def agregar_documento_chroma(texto, metadata):##################################
 
 
 
-#######################################################################################
-#######################################################################################
-
+##############################################################################
+# FUNCIONES DE PROCESAMIENTO DE INDICE FAISS
+##############################################################################
 def cargar_indice():
     """Carga el índice FAISS si existe, o crea uno nuevo."""
     global index
@@ -272,21 +282,16 @@ def agregar_documento_faiss(texto, metadata_json):##############################
                                      normalize_embeddings=True
                                     )[0]
     index.add(np.array([embedding]).astype('float32'))
-    
     guardar_indice()  # Guardamos el índice actualizado
-    
-    ultimo_indice=index.ntotal - 1
-    
+    ultimo_indice=index.ntotal - 1    
     metadata_json['indice_faiss']=ultimo_indice
     coleccion_faiss.insert_one(metadata_json)
-
-    
-    
-        # Retornar el índice asignado al documento en FAISS
     return ultimo_indice  # El último índice agregado
-#######################################################################################
-#######################################################################################
  
+
+##############################################################################
+# FUNCIONES DE PROCESAMIENTO DE TEXTO
+##############################################################################
 
 def preprocesar_texto(texto):
     """Aplica lematización y elimina stopwords del texto."""
@@ -339,8 +344,6 @@ def no_contiene_termino_prohibido(texto):
     if texto.lower() in TERMINOS_NO_CONSIDERAR_PARRAFOS:
         return False
     return True
- 
-    
  
 
 def es_texto_relevante_post_procesado(texto):
@@ -430,7 +433,11 @@ def extract_text_from_pdf(pdf_path):
         logging.error(f"Error al extraer texto de  {pdf_path}: {e}\n{traceback.format_exc()}")
         return None    
 
-def procesar_pdfs():########################################################################################################
+##############################################################################
+# FUNCION PARA PROCESAR PDFs PARA REVISAR EL DIRECTORIO DIR_NUEVOS Y PROCESARLOS
+##############################################################################
+
+def procesar_pdfs():###########################################################
     """Procesa todos los PDFs en la carpeta de nuevos documentos."""
     archivos_pdf = [f for f in os.listdir(DIR_NUEVOS) if f.endswith(".pdf")]
 
@@ -457,8 +464,10 @@ def procesar_pdfs():############################################################
             shutil.move(pdf_path, os.path.join(DIR_ERRORES, archivo))
             logging.error(f"❌ no hay texto {archivo}: {e}\n{traceback.format_exc()}")
 
-
-def extraer_texto_y_metadatos(pdf_path,nomnre_archivo):#################################################################################
+##############################################################################
+# FUNCION PARA REALIZAR EL PIPELINE de procesamiento de DE ARCHIVOS PDFs
+##############################################################################
+def extraer_texto_y_metadatos(pdf_path,nomnre_archivo):###########################################
     """Extrae el texto del PDF, genera embeddings y almacena en FAISS."""
     try:
         doc = fitz.open(pdf_path)
@@ -673,7 +682,9 @@ def extraer_texto_y_metadatos(pdf_path,nomnre_archivo):#########################
         return False
 
 
-##############################################################################################################
+##############################################################################
+# INICIO PROGRAMA
+##############################################################################
 
 if __name__ == "__main__":
     logging.info("🚀 Iniciando procesamiento de PDFs...")
