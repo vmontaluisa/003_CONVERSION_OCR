@@ -521,8 +521,6 @@ def extraer_texto_y_metadatos(pdf_path,nomnre_archivo):#########################
                 texto_pagina=pagina.get_text("text")
                 metadata_adicional = extract_metadata_txt_with_openai(clean_text(texto_pagina), PREGUNTAS)
 
-            
-            
             # Guardar imagen de la página
             nommbre_imagen=f"{metadatos['archivo_unid']}_pag{num_pagina+1}.png"
             img_filename = os.path.join(DIR_IMAGENES,nommbre_imagen )
