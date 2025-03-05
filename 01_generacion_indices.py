@@ -53,7 +53,6 @@ DIR_CHROMA = os.path.join(BASE_DIR, os.getenv("DIR_CHROMA", "07_CHROMADB"))
 for directorio in [DIR_NUEVOS, DIR_PROCESADOS,DIR_ERRORES,DIR_METADATA,DIR_OCR,DIR_IMAGENES,DIR_LOGS ,DIR_FAISS, DIR_CHROMA]:
    if not os.path.exists(directorio):
         os.makedirs(directorio, exist_ok=True)
-        print(f"📂 Verificado o creado: {directorio}")
         logging.info(f"📂 Verificado o creado: {directorio}")
      
 
@@ -106,9 +105,14 @@ CHROMA_DB_PATH=f"{DIR_CHROMA}"  # Ruta donde se guardará la base de datos
 # Pregunta OPENAI
 PREGUNTAS = ["¿Numero Registro Oficial o Suplemento?",
                  "¿Fecha de publicacion en formato YYYY-MM-DD?", 
-                 "¿Cual es el titulo de la Ley?",
-                
+                 "¿Cual es el Titulo de la Ley?",                
                  ]
+
+PREGUNTAS_CAMPOS = {"Numero Registro Oficial o Suplemento": "REGISTRO_NUMERO",
+                 "Fecha de publicacion en formato YYYY-MM-DD":"FECHA_PUBLICACION", 
+                  "Titulo de la Ley":"TITULO",                
+                    }
+
 
 # Diccionario de términos legales personalizados
 TERMINOS_LEGALES = {
@@ -383,7 +387,7 @@ def extract_text_with_ocr(pdf_path):
         logging.error(f"Error al realizar OCR en {pdf_path}: {e}\n{traceback.format_exc()}")
 
 
-def extract_metadata_txt_with_openai(text, questions):
+def extract_metadata_txt_with_openai(text, questions=PREGUNTAS):
         try:
             client = OpenAI(api_key=OPENAI_API_KEY)
             
@@ -398,10 +402,22 @@ def extract_metadata_txt_with_openai(text, questions):
                 messages=[{"role": "system", "content": "Eres un asistente que extrae información clave exclusivamente del texto proporcionado. No hagas suposiciones. Devuelve siempre una respuesta en formato JSON."},
                         {"role": "user", "content": prompt}],
                 temperature=0.0
-            )
-            
-            metadata_json = json.loads(response.choices[0].message.content.strip())
-            return metadata_json
+            )            
+            respuesta_json = json.loads(response.choices[0].message.content.strip())
+                        
+            # Nuevo diccionario para almacenar la respuesta transformada
+            respuesta_transformada = {}
+
+            # Recorrer cada clave en la respuesta original
+            for key, value in respuesta_json.items():
+                # Verificar si la clave existe en el diccionario de mapeo
+                if key in PREGUNTAS_CAMPOS:
+                    # Reemplazar la clave con su nuevo nombre
+                    nueva_key = PREGUNTAS_CAMPOS[key]
+                    respuesta_transformada[nueva_key] = value
+
+            # Convertir a JSON y mostrar resultado
+            return respuesta_transformada
         except Exception as e:
             logging.error(f"Error al procesar metadata con OpenAI en  {text}: {e}\n{traceback.format_exc()}")
             return {}
@@ -503,7 +519,7 @@ def extraer_texto_y_metadatos(pdf_path,nomnre_archivo):#########################
             parrafos = pagina.get_text("blocks")
             if numero_pagina==1:#consutal de metadatas solo con la primera pagina
                 texto_pagina=pagina.get_text("text")
-                metadata_adicional = {}#extract_metadata_txt_with_openai(clean_text(texto_pagina), PREGUNTAS)
+                metadata_adicional = extract_metadata_txt_with_openai(clean_text(texto_pagina), PREGUNTAS)
 
             
             
@@ -689,7 +705,7 @@ def extraer_texto_y_metadatos(pdf_path,nomnre_archivo):#########################
 if __name__ == "__main__":
     logging.info("🚀 Iniciando procesamiento de PDFs...")
     cargar_indice()
-    procesar_pdfs()
+    procesar_pdfs()   
     logging.info("✅ Procesamiento finalizado.")
     
     
