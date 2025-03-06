@@ -422,10 +422,8 @@ def extract_metadata_txt_with_openai(text, questions=PREGUNTAS):
             client = OpenAI(api_key=OPENAI_API_KEY)
             
             text=text[:OPENAI_MAXIMO_TEXTO]
-            prompt = ("""
-            Extrae la siguiente información del texto de manera estricta, sin inferencias ni interpretaciones. 
-            Si la información no está en el documento, responde 'No encontrado'. Devuelve la información en formato JSON.
-            """ + "\n".join([f"- {q}" for q in questions]) + "\n\nTexto:\n" + text)
+            prompt = ("""Extrae la siguiente información del texto de manera estricta, sin inferencias ni interpretaciones. 
+            Si la información no está en el documento, responde 'No encontrado'. Devuelve la información en formato JSON. """ + "\n".join([f"- {q}" for q in questions]) + "\n\nTexto:\n" + text)
             
             response = client.chat.completions.create(
                 model=OPENAI_MODELO,

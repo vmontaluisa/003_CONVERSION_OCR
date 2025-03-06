@@ -201,8 +201,7 @@ def generate_openai_response(contexto, pregunta):
     try:
             client = OpenAI(api_key=OPENAI_API_KEY)
                       
-            prompt = f"""
-                         Basado en la siguiente información recuperada:
+            prompt = f"""Basado en la siguiente información recuperada:
                             {contexto}
                         Responde la siguiente pregunta de manera clara y concisa en un solo parrafo :
                         {pregunta}
