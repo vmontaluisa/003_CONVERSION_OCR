@@ -60,14 +60,6 @@ FAISS_ARCHIVO_INDICE=  os.getenv("FAISS_ARCHIVO_INDICE","")
 
 
 ##############################################################################
-# CONECCIÓN MONGO PARA leer metadatos
-##############################################################################
-client = pymongo.MongoClient(MONGODB_URI)
-db = client[MONGO_DB]
-coleccion_faiss = db[MONGO_COLLECTION_FAISS]
-coleccion_parrafos = db[MONGO_COLLECTION_PARRAFOS]
-
-##############################################################################
 # CONFIGURACIÓN PARA LOGS
 ##############################################################################
 # Definir la zona horaria de Guayaquil para log
@@ -96,6 +88,23 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+
+
+##############################################################################
+# CONECCIÓN MONGO PARA leer metadatos
+##############################################################################
+client = pymongo.MongoClient(MONGODB_URI)
+db = client[MONGO_DB]
+coleccion_faiss = db[MONGO_COLLECTION_FAISS]
+coleccion_parrafos = db[MONGO_COLLECTION_PARRAFOS]
+logging.info(f"Conectado a mongo bdd: {MONGO_DB}")
+
+
+logging.info("✅ Base de datos ChromaDB cargada.")
+logging.info("##############################################################")
+logging.info(f"INDICES: {BASE_DIR}")
+logging.info("##############################################################")
 
 
 ##############################################################################
@@ -146,10 +155,6 @@ chroma_collection = chroma_client.get_or_create_collection(
 	•	"cosine" → Similitud coseno (recomendada para texto)
 '''
 
-logging.info("✅ Base de datos ChromaDB cargada.")
-logging.info("##############################################################")
-logging.info(f"INDICES: {BASE_DIR}")
-logging.info("##############################################################")
 
 
 

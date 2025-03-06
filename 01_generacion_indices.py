@@ -24,6 +24,8 @@ from openai import OpenAI  # API de OpenAI
 import torch  # Para uso de aceleración en hardware
 import traceback
 import chromadb  # Base de datos vectorial para búsqueda semántica
+from datetime import datetime
+
 
 # Cargar configuraciones desde .env
 load_dotenv()
@@ -49,18 +51,13 @@ DIR_FAISS = os.path.join(BASE_DIR, os.getenv("DIR_FAISS", "07_FAISS"))
 DIR_CHROMA = os.path.join(BASE_DIR, os.getenv("DIR_CHROMA", "07_CHROMADB"))
 
 
-# Crear los directorios si no existen
-for directorio in [DIR_NUEVOS, DIR_PROCESADOS,DIR_ERRORES,DIR_METADATA,DIR_OCR,DIR_IMAGENES,DIR_LOGS ,DIR_FAISS, DIR_CHROMA]:
-   if not os.path.exists(directorio):
-        os.makedirs(directorio, exist_ok=True)
-        logging.info(f"📂 Verificado o creado: {directorio}")
      
 
 
 ##############################################################################
 # CONFIGURACIÓN DE MONGO DB PARA ALMACENAMIENTO
 ##############################################################################
-MONGO_DB = os.getenv("MONGO_DB", "documentos_legales")
+MONGO_DB = os.getenv("MONGO_DB", "")
 MONGODB_HOST=os.getenv("MONGODB_HOST","")
 MONGODB_PORT=os.getenv("MONGODB_PORT","")
 MONGODB_AUTH_SOURCE=os.getenv("MONGODB_AUTH_SOURCE","")
@@ -141,14 +138,15 @@ PALABRAS_IGNORADAS = {
                       }  # Palabras poco útiles
 
 
+
 ##############################################################################
-# CONECCIÓN MONGO PARA ALMACENAR METADATA
+# Crear los directorios si no existen
 ##############################################################################
-client = pymongo.MongoClient(MONGODB_URI)
-db = client[MONGO_DB]
-coleccion_chroma = db[MONGO_COLLECTION_CHROMA]
-coleccion_faiss = db[MONGO_COLLECTION_FAISS]
-coleccion_documentos_parrafos = db[MONGO_COLLECTION_PARRAFOS]
+for directorio in [DIR_NUEVOS, DIR_PROCESADOS,DIR_ERRORES,DIR_METADATA,DIR_OCR,DIR_IMAGENES,DIR_LOGS ,DIR_FAISS, DIR_CHROMA]:
+   if not os.path.exists(directorio):
+        os.makedirs(directorio, exist_ok=True)
+
+
 
 ##############################################################################
 # CONFIGURACIÓN PARA LOGS
@@ -161,7 +159,13 @@ def guayaquil_time(*args):
     local_dt = utc_dt.astimezone(zona_horaria)
     return local_dt.timetuple()
 # Configurar logging
-log_file = os.path.join(DIR_LOGS, "procesamiento.log")
+fecha_hora_actual = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+
+log_file = os.path.join(DIR_LOGS, f"procesamiento_{fecha_hora_actual}.log")
+if not os.path.exists(log_file):
+    with open(log_file, "w") as f:
+        f.write("")  # Crea el archivo vacío
+
 logging.Formatter.converter = guayaquil_time  # Establecer la conversión a Guayaquil
 logging.basicConfig(
     filename=log_file,
@@ -169,6 +173,26 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S"
 )
+
+
+
+
+
+##############################################################################
+# CONECCIÓN MONGO PARA ALMACENAR METADATA
+##############################################################################
+client = pymongo.MongoClient(MONGODB_URI)
+db = client[MONGO_DB]
+coleccion_chroma = db[MONGO_COLLECTION_CHROMA]
+coleccion_faiss = db[MONGO_COLLECTION_FAISS]
+coleccion_documentos_parrafos = db[MONGO_COLLECTION_PARRAFOS]
+logging.info(f"Conectado a mongo bdd: {MONGO_DB}")
+
+logging.info("✅ Base de datos ChromaDB cargada.")
+logging.info("##############################################################")
+logging.info(f"INDICES: {BASE_DIR}")
+logging.info("##############################################################")
+
 
 
 ##############################################################################
@@ -421,6 +445,10 @@ def extract_metadata_txt_with_openai(text, questions=PREGUNTAS):
                     # Reemplazar la clave con su nuevo nombre
                     nueva_key = PREGUNTAS_CAMPOS[key]
                     respuesta_transformada[nueva_key] = value
+            
+            for key, value in PREGUNTAS_CAMPOS.items():
+                if not value in respuesta_transformada:
+                    respuesta_transformada[value]=''
 
             # Convertir a JSON y mostrar resultado
             return respuesta_transformada
